@@ -6,6 +6,7 @@
 #include <stdio.h>
 #include <termios.h>
 #include <unistd.h>
+#include <mutex>
 
 /**
  * @brief LMS module pause_runtime
@@ -19,7 +20,9 @@ public:
     bool cycle() override;
 private:
     std::string runtimeName;
+    std::mutex mutex;
     bool running;
+    bool stopNextCycle;
 
     std::thread thread;
     fd_set fds;

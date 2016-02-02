@@ -3,6 +3,7 @@
 bool PauseRuntime::initialize() {
     logger.info() << "Press p to pause runtime";
     logger.info() << "Press c to resume runtime";
+    logger.info() << "Press w to step one cycle";
 
     /*tcgetattr gets the parameters of the current terminal
     STDIN_FILENO will tell tcgetattr that it should write the settings
@@ -21,6 +22,7 @@ bool PauseRuntime::initialize() {
 
     runtimeName = config().get<std::string>("runtime", "default");
     running = true;
+    stopNextCycle = false;
 
     thread = std::thread([this] () {
         while(running) {
@@ -29,7 +31,7 @@ bool PauseRuntime::initialize() {
 
             timeval timeout;
             timeout.tv_sec = 0;
-            timeout.tv_usec = 100 * 1000; // 100 ms
+            timeout.tv_usec = 10 * 1000; // 10 ms
             int result = select(STDIN_FILENO + 1, &fds, nullptr, nullptr, &timeout);
 
             if(result == 1 && FD_ISSET(STDIN_FILENO, &fds)) {
@@ -40,6 +42,17 @@ bool PauseRuntime::initialize() {
                     pauseRuntime(runtimeName);
                     break;
                 case 'c':
+                    {
+                        std::unique_lock<std::mutex> lock(mutex);
+                        stopNextCycle = false;
+                    }
+                    resumeRuntime(runtimeName);
+                    break;
+                case 'w':
+                    {
+                        std::unique_lock<std::mutex> lock(mutex);
+                        stopNextCycle = true;
+                    }
                     resumeRuntime(runtimeName);
                     break;
                 }
@@ -63,5 +76,11 @@ bool PauseRuntime::deinitialize() {
 }
 
 bool PauseRuntime::cycle() {
+    std::unique_lock<std::mutex> lock(mutex);
+    if(stopNextCycle) {
+        stopNextCycle = false;
+        pauseRuntime();
+    }
+
     return true;
 }
