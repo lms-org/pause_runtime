@@ -4,6 +4,7 @@ bool PauseRuntime::initialize() {
     logger.info() << "Press p to pause runtime";
     logger.info() << "Press c to resume runtime";
     logger.info() << "Press w to step one cycle";
+    pause = false;
 
     /*tcgetattr gets the parameters of the current terminal
     STDIN_FILENO will tell tcgetattr that it should write the settings
@@ -22,7 +23,7 @@ bool PauseRuntime::initialize() {
 
     runtimeName = config().get<std::string>("runtime", "default");
     running = true;
-    stopNextCycle = false;
+    goNextCycle = false;
 
     thread = std::thread([this] () {
         while(running) {
@@ -39,19 +40,24 @@ bool PauseRuntime::initialize() {
 
                 switch(c) {
                 case 'p':
-                    pauseRuntime(runtimeName);
+                {
+                    std::unique_lock<std::mutex> lock(mutex);
+                    pause = true;
                     break;
+                }
                 case 'c':
                     {
                         std::unique_lock<std::mutex> lock(mutex);
-                        stopNextCycle = false;
+                        pause = false;
+                        goNextCycle = false;
+
                     }
-                    resumeRuntime(runtimeName);
                     break;
                 case 'w':
                     {
                         std::unique_lock<std::mutex> lock(mutex);
-                        stopNextCycle = true;
+                        goNextCycle = true;
+                        pause = true;
                     }
                     resumeRuntime(runtimeName);
                     break;
@@ -77,11 +83,26 @@ bool PauseRuntime::deinitialize() {
 }
 
 bool PauseRuntime::cycle() {
-    std::unique_lock<std::mutex> lock(mutex);
-    if(stopNextCycle) {
-        stopNextCycle = false;
-        pauseRuntime();
+    bool wait = false;
+    {
+        std::unique_lock<std::mutex> lock(mutex);
+        wait = pause;// && !goNextCycle;
+        logger.error("WAIT")<<(int)pause<<" "<<goNextCycle<<(int)wait;
     }
+    //TODO while
+    //logger.error("WAIT")<<(int)wait;
+    if(wait) {
+        usleep(100000);
+        /*
+        {
+            std::unique_lock<std::mutex> lock(mutex);
+            goNextCycle = false;
+            //wait = pause && !goNextCycle;
+        }
+        */
+    }
+
+    usleep(100);
 
     return true;
 }

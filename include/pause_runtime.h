@@ -19,10 +19,11 @@ public:
     bool deinitialize() override;
     bool cycle() override;
 private:
+    bool pause;
     std::string runtimeName;
     std::mutex mutex;
     bool running;
-    bool stopNextCycle;
+    bool goNextCycle;
 
     std::thread thread;
     fd_set fds;
